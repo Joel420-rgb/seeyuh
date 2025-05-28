@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offerwall Rewards Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* Reset & Basics */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      background: rgba(0, 0, 0, 0.75);
+      padding: 2rem;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+    }
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      background: #4caf50;
+      color: white;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-top: 1rem;
+      width: 100%;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .dashboard {
+      display: none;
+      max-width: 900px;
+      width: 95%;
+      flex-direction: column;
+      text-align: center;
+    }
+    .dashboard h1 {
+      margin-bottom: 1rem;
+    }
+    nav {
+      margin-bottom: 1rem;
+    }
+    nav button {
+      background: #333;
+      padding: 0.5rem 1rem;
+      margin: 0 5px;
+      border-radius: 8px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+    nav button:hover {
+      background: #555;
+    }
+    iframe {
+      width: 100%;
+      height: 70vh;
+      border: none;
+      border-radius: 12px;
+      display: none;
+    }
+    .active {
+      display: block;
+    }
+    #error-msg {
+      color: #f44336;
+      margin-top: 0.5rem;
+    }
+    #logout-btn {
+      background: #d32f2f;
+      margin-top: 1rem;
+      width: auto;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login/Register Container -->
+  <div class="container" id="auth-container">
+    <h2 id="form-title">Login to Rewards Portal</h2>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button id="auth-btn">Login</button>
+    <p style="margin-top:1rem;">
+      <span id="toggle-text">Don't have an account?</span>
+      <a href="#" id="toggle-link" style="color:#4caf50; cursor:pointer;">Register</a>
+    </p>
+    <p id="error-msg"></p>
+  </div>
+
+  <!-- Dashboard Container -->
+  <div class="dashboard" id="dashboard">
+    <h1>Welcome, <span id="user-email"></span>!</h1>
+    <nav>
+      <button onclick="showWall('cpx')">CPX Research</button>
+      <button onclick="showWall('lootably')">Lootably</button>
+      <button onclick="showWall('offertoro')">OfferToro</button>
+    </nav>
+    <iframe id="cpx" class="active" src=""></iframe>
+    <iframe id="lootably" src=""></iframe>
+    <iframe id="offertoro" src=""></iframe>
+    <button id="logout-btn">Logout</button>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPzy5gI_8pYNAf6MfPAhynXFUQmoIyX0Q",
+      authDomain: "offerwall-a1633.firebaseapp.com",
+      projectId: "offerwall-a1633",
+      storageBucket: "offerwall-a1633.firebasestorage.app",
+      messagingSenderId: "1028983595144",
+      appId: "1:1028983595144:web:24f4d46b71a322dbadff3d"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // Elements
+    const authContainer = document.getElementById('auth-container');
+    const dashboard = document.getElementById('dashboard');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const authBtn = document.getElementById('auth-btn');
+    const toggleLink = document.getElementById('toggle-link');
+    const toggleText = document.getElementById('toggle-text');
+    const formTitle = document.getElementById('form-title');
+    const errorMsg = document.getElementById('error-msg');
+    const userEmailSpan = document.getElementById('user-email');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    let isLoginMode = true;
+
+    // Toggle Login/Register
+    toggleLink.addEventListener('click', e => {
+      e.preventDefault();
+      isLoginMode = !isLoginMode;
+      if (isLoginMode) {
+        formTitle.innerText = "Login to Rewards Portal";
+        authBtn.innerText = "Login";
+        toggleText.innerText = "Don't have an account?";
+        toggleLink.innerText = "Register";
+        errorMsg.innerText = "";
+      } else {
+        formTitle.innerText = "Register for Rewards Portal";
+        authBtn.innerText = "Register";
+        toggleText.innerText = "Already have an account?";
+        toggleLink.innerText = "Login";
+        errorMsg.innerText = "";
+      }
+    });
+
+    // Auth button click
+    authBtn.addEventListener('click', () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      errorMsg.innerText = "";
+
+      if (!email || !password) {
+        errorMsg.innerText = "Please fill in both fields.";
+        return;
+      }
+
+      if (isLoginMode) {
+        // Login
+        auth.signInWithEmailAndPassword(email, password)
+          .then(userCredential => {
+            // Successful login
+            emailInput.value = "";
+            passwordInput.value = "";
+          })
+          .catch(error => {
+            errorMsg.innerText = error.message;
+          });
+      } else {
+        // Register
+        auth.createUserWithEmailAndPassword(email, password)
+          .then(userCredential => {
+            // Successful registration
+            emailInput.value = "";
+            passwordInput.value = "";
+          })
+          .catch(error => {
+            errorMsg.innerText = error.message;
+          });
+      }
+    });
+
+    // Auth state changed
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        // User logged in
+        authContainer.style.display = 'none';
+        dashboard.style.display = 'flex';
+        userEmailSpan.innerText = user.email;
+
+        // Setup offerwall URLs with user email as user ID (URL encoded)
+        const userId = encodeURIComponent(user.email);
+        document.getElementById('cpx').src = `https://survey.cpx-research.com/surveys/new?user_id=${userId}`;
+        document.getElementById('lootably').src = `https://wall.lootably.com/?userid=${userId}`;
+        document.getElementById('offertoro').src = `https://www.offertoro.com/ifr/show/${userId}`;
+
+        showWall('cpx');
+      } else {
+        // User logged out
+        authContainer.style.display = 'block';
+        dashboard.style.display = 'none';
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      auth.signOut();
+    });
+
+    // Show offerwall function
+    function showWall(id) {
+      document.querySelectorAll('iframe').forEach(el => el.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+  </script>
+
+</body>
+</html>
